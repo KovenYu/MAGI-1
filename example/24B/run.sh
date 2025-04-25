@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Save terminal settings
+saved_terminal_settings=$(stty -g)
+# Ensure terminal settings are restored on script exit
+trap 'stty "$saved_terminal_settings"' EXIT
+
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export NCCL_ALGO=^NVLS
 
@@ -36,9 +41,12 @@ LOG_DIR=log_$(date "+%Y-%m-%d_%H:%M:%S").log
 
 export PYTHONPATH="$MAGI_ROOT:$PYTHONPATH"
 torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
-    --config_file example/24B/24B_config.json \
+    --config_file example/24B/24B_config_test.json \
     --mode i2v \
     --prompt "Good Boy" \
     --image_path example/assets/image.jpeg \
     --output_path example/assets/output_i2v.mp4 \
     2>&1 | tee $LOG_DIR
+
+# Explicitly restore terminal settings
+stty "$saved_terminal_settings"

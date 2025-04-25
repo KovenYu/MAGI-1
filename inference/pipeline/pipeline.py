@@ -14,8 +14,9 @@
 
 
 import torch
+import torch.distributed as dist
 
-from inference.common import MagiConfig, print_rank_0, set_random_seed
+from inference.common import MagiConfig, event_path_timer, print_rank_0, set_random_seed
 from inference.infra.distributed import dist_init
 from inference.model.dit import get_dit
 
@@ -55,6 +56,31 @@ class MagiPipeline:
             ],
             dim=0,
         )
+        
+        self.config.runtime_config.num_frames = 191
+        caption_embs, emb_masks = get_txt_embeddings(prompt, self.config)
+        dit = get_dit(self.config)
+        for iii in range(3):        
+            # Start timing video generation if rank 0
+            if dist.get_rank() == 0:
+                event_path_timer().synced_record("video_generation_start")
+                print('Testing inference time cost.')
+                
+            videos = torch.cat(
+                [
+                    post_chunk_process(chunk, self.config)
+                    for chunk in generate_per_chunk(
+                        model=dit, prompt=prompt, prefix_video=prefix_video, caption_embs=caption_embs, emb_masks=emb_masks
+                    )
+                ],
+                dim=0,
+            )
+            
+            # End timing if rank 0
+            if dist.get_rank() == 0:
+                event_path_timer().synced_record("video_generation_end")
+                print('End of testing inference time cost.')
+        
         save_video_to_disk(videos, output_path, fps=self.config.runtime_config.fps)
 
         mem_allocated_gb = torch.cuda.max_memory_allocated() / 1024**3
