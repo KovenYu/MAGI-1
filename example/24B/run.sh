@@ -41,10 +41,10 @@ LOG_DIR=log_$(date "+%Y-%m-%d_%H:%M:%S").log
 
 export PYTHONPATH="$MAGI_ROOT:$PYTHONPATH"
 torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
-    --config_file example/24B/24B_config_test.json \
+    --config_file example/24B/24B_config_wp.json \
     --mode i2v \
-    --prompt "Good Boy" \
-    --image_path example/assets/image.jpeg \
+    --prompt "smoke rising up and interacting with the shoe moving forward" \
+    --image_path ../Wonderland2/output/genesis/smoke_1/Gen-19-04_05-56-38/simulation/first_frame.png \
     --output_path example/assets/output_i2v.mp4 \
     2>&1 | tee $LOG_DIR
 

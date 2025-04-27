@@ -55,14 +55,14 @@
         "clean_chunk_kvrange": 1,
         "clean_t": 0.9999,
         "seed": 1234,
-        "num_frames": 96,
-        "video_size_h": 720,
-        "video_size_w": 1280,
-        "num_steps": 8,
+        "num_frames": 47,
+        "video_size_h": 512,
+        "video_size_w": 512,
+        "num_steps": 4,
         "window_size": 4,
         "fps": 24,
         "chunk_width": 6,
-        "load": "./ckpt/magi/24B_base",
+        "load": "./ckpt/magi/24B_distill_quant",
         "t5_pretrained": "./ckpt/t5",
         "vae_pretrained": "./ckpt/vae",
         "scale_factor": 0.18215,
@@ -79,7 +79,7 @@
         "distill_nearly_clean_chunk_threshold": 0.3,
         "shortcut_mode": "8,16,16",
         "distill": true,
-        "kv_offload": true,
-        "enable_cuda_graph": false
+        "kv_offload": false,
+        "enable_cuda_graph": true
     }
 }

@@ -758,6 +758,7 @@ def generate_per_chunk(
     model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor
 ) -> Generator[Tuple[int, int, int, int, int, torch.Tensor], None, None]:
     device = f"cuda:{torch.cuda.current_device()}"
+    print(f"cuda current device: {torch.cuda.current_device()}")
     transport_inputs: InferenceInput = extract_feature_for_inference(model, prompt, prefix_video, caption_embs, emb_masks)
     sample_transport = SampleTransport(model=model, transport_inputs=[transport_inputs], device=device)
     for _, _, chunk in sample_transport.walk():

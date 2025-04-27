@@ -38,6 +38,7 @@ class MagiPipeline:
 
     def run_image_to_video(self, prompt: str, image_path: str, output_path: str):
         prefix_video = process_image(image_path, self.config)
+        print(f"prefix_video.shape: {prefix_video.shape}")
         self._run(prompt, prefix_video, output_path)
 
     def run_video_to_video(self, prompt: str, prefix_video_path: str, output_path: str):
@@ -45,6 +46,7 @@ class MagiPipeline:
         self._run(prompt, prefix_video, output_path)
 
     def _run(self, prompt: str, prefix_video: torch.Tensor, output_path: str):
+        print(f"the frame number of generated video: {self.config.runtime_config.num_frames}")
         caption_embs, emb_masks = get_txt_embeddings(prompt, self.config)
         dit = get_dit(self.config)
         videos = torch.cat(
@@ -57,10 +59,11 @@ class MagiPipeline:
             dim=0,
         )
         
-        self.config.runtime_config.num_frames = 191
+        
+        # self.config.runtime_config.num_frames = 47
         caption_embs, emb_masks = get_txt_embeddings(prompt, self.config)
         dit = get_dit(self.config)
-        for iii in range(3):        
+        for iii in range(1):        
             # Start timing video generation if rank 0
             if dist.get_rank() == 0:
                 event_path_timer().synced_record("video_generation_start")
@@ -80,8 +83,8 @@ class MagiPipeline:
             if dist.get_rank() == 0:
                 event_path_timer().synced_record("video_generation_end")
                 print('End of testing inference time cost.')
-        
-        save_video_to_disk(videos, output_path, fps=self.config.runtime_config.fps)
+        print(f"videos.shape: {videos.shape}")
+        save_video_to_disk(videos, output_path, fps=self.config.runtime_config.fps//3)
 
         mem_allocated_gb = torch.cuda.max_memory_allocated() / 1024**3
         mem_reserved_gb = torch.cuda.max_memory_reserved() / 1024**3
