@@ -28,6 +28,7 @@ def parse_arguments():
     parser.add_argument('--image_path', type=str, help='Path to the image file (for i2v mode).')
     parser.add_argument('--prefix_video_path', type=str, help='Path to the prefix video file (for v2v mode).')
     parser.add_argument('--output_path', type=str, required=True, help='Path to save the output video.')
+    parser.add_argument('--reference_path', type=str, help='Path to the reference video file (for i2v mode).')
     return parser.parse_args()
 
 
@@ -42,7 +43,7 @@ def main():
         if not args.image_path:
             print("Error: --image_path is required for i2v mode.")
             sys.exit(1)
-        pipeline.run_image_to_video(prompt=args.prompt, image_path=args.image_path, output_path=args.output_path)
+        pipeline.run_image_to_video(prompt=args.prompt, image_path=args.image_path, output_path=args.output_path, reference_path=args.reference_path)
     elif args.mode == 'v2v':
         if not args.prefix_video_path:
             print("Error: --prefix_video_path is required for v2v mode.")

@@ -46,6 +46,7 @@ torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
     --prompt "smoke rising up and interacting with the shoe moving forward" \
     --image_path ../Wonderland2/output/genesis/smoke_1/Gen-19-04_05-56-38/simulation/first_frame.png \
     --output_path example/assets/output_i2v.mp4 \
+    --reference_path ../Wonderland2/output/genesis/smoke_1/Gen-27-04_05-40-09/simulation/traj_00/render_video.mp4 \
     2>&1 | tee $LOG_DIR
 
 # Explicitly restore terminal settings

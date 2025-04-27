@@ -43,6 +43,7 @@ class InferenceInput:
     task_idx_list: List[int] = None
     report_chunk_num_list: List[int] = None
     chunk_num: int = None
+    reference_video: Union[torch.Tensor, None] = None
 
 
 def _process_txt_embeddings(
@@ -81,7 +82,7 @@ def _process_null_embeddings(
 
 @torch.inference_mode()
 def extract_feature_for_inference(
-    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor
+    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor, reference_video: torch.Tensor = None
 ) -> InferenceInput:
     model_config = model.model_config
     runtime_config = model.runtime_config
@@ -133,6 +134,7 @@ def extract_feature_for_inference(
         task_idx_list=[0],
         report_chunk_num_list=[infer_chunk_num - clean_chunk_num],
         chunk_num=latent_size_t // runtime_config.chunk_width,
+        reference_video=reference_video
     )
 
 
@@ -191,7 +193,8 @@ def init_t(t_schedule_config: Union[Dict, None], num_steps: int, device: torch.d
             base_t = torch.cat([base_t[:1], base_t[2:4]], dim=0)
         t = torch.cat([base_t + accu for accu in accu_num], dim=0)[: (num_steps + 1)]
     else:
-        t = torch.linspace(0, 1, num_steps + 1, device=device)
+        t = torch.linspace(0, 1, num_steps + 1 + 1, device=device)
+        t = t[:-1]
     t_schedule_func = t_schedule_config.get("tSchedulerFunc", "sd3")
     if t_schedule_func == "sd3":
 
@@ -281,7 +284,6 @@ class SampleTransport:
                 print_rank_0("Warning: For better performance, please use multiple inputs for PP>1")
         else:
             assert len(self.transport_inputs) == 1, "Only support single input for PP=1"
-
         for idx, tran_input in enumerate(self.transport_inputs):
             self.work_queue.put(WorkStatus(infer_idx=idx, cur_denoise_step=0))
 
@@ -304,7 +306,23 @@ class SampleTransport:
                 self.time_record.append(progress_bar)
 
             print_rank_0(f"transport_inputs len: {len(self.transport_inputs)}")
-            x = torch.randn(*tran_input.latent_size, device=self.device)  # NCTHW
+            if self.transport_inputs[idx].reference_video is not None:
+                # 获取reference video
+                x = self.transport_inputs[idx].reference_video
+                # 获取倒数第二步的时间步长
+                t_penultimate = self.ts[idx][-1]
+                # 生成对应时间步长的噪声
+                noise = torch.randn_like(x)
+                print(f"noise.shape: {noise.shape}")
+                # 将reference video加噪到倒数第二步
+                # TODO: 需要修改
+                alpha = (1 - t_penultimate) ** 0.5
+                sigma = t_penultimate ** 0.5
+                x = alpha * x + sigma * noise
+
+            else:
+                x = torch.randn(*tran_input.latent_size, device=self.device)  # NCTHW
+
             x = torch.cat([x, x], 0)  # [2 * N, C, T, H, W]
             self.xs.append(x)
 
@@ -755,11 +773,11 @@ class SampleTransport:
 
 
 def generate_per_chunk(
-    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor
+    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor, reference_video: torch.Tensor = None
 ) -> Generator[Tuple[int, int, int, int, int, torch.Tensor], None, None]:
     device = f"cuda:{torch.cuda.current_device()}"
     print(f"cuda current device: {torch.cuda.current_device()}")
-    transport_inputs: InferenceInput = extract_feature_for_inference(model, prompt, prefix_video, caption_embs, emb_masks)
+    transport_inputs: InferenceInput = extract_feature_for_inference(model, prompt, prefix_video, caption_embs, emb_masks, reference_video)
     sample_transport = SampleTransport(model=model, transport_inputs=[transport_inputs], device=device)
     for _, _, chunk in sample_transport.walk():
         yield chunk

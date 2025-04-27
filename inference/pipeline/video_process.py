@@ -326,11 +326,12 @@ def process_image(image_path: str, config: MagiConfig) -> torch.Tensor:
 def process_prefix_video(prefix_video_path: str, config: MagiConfig) -> torch.Tensor:
     prefix_video = ffmpeg_v2v(
         prefix_video_path,
-        fps=config.runtime_config.fps,
-        prefix_frame=32,
+        fps=8, #config.runtime_config.fps,
+        prefix_frame=48,
         w=config.runtime_config.video_size_w,
         h=config.runtime_config.video_size_h,
     )
+
     prefix_video = encode_prefix_video(
         prefix_video,
         config.runtime_config.fps,

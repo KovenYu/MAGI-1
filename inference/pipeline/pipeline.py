@@ -36,16 +36,18 @@ class MagiPipeline:
     def run_text_to_video(self, prompt: str, output_path: str):
         self._run(prompt, None, output_path)
 
-    def run_image_to_video(self, prompt: str, image_path: str, output_path: str):
+    def run_image_to_video(self, prompt: str, image_path: str, output_path: str, reference_path: str):
         prefix_video = process_image(image_path, self.config)
+        reference_video = process_prefix_video(reference_path, self.config)
         print(f"prefix_video.shape: {prefix_video.shape}")
-        self._run(prompt, prefix_video, output_path)
+        print(f"reference_video.shape: {reference_video.shape}")
+        self._run(prompt, prefix_video, output_path, reference_video)
 
     def run_video_to_video(self, prompt: str, prefix_video_path: str, output_path: str):
         prefix_video = process_prefix_video(prefix_video_path, self.config)
         self._run(prompt, prefix_video, output_path)
 
-    def _run(self, prompt: str, prefix_video: torch.Tensor, output_path: str):
+    def _run(self, prompt: str, prefix_video: torch.Tensor, output_path: str, reference_video: torch.Tensor = None):
         print(f"the frame number of generated video: {self.config.runtime_config.num_frames}")
         caption_embs, emb_masks = get_txt_embeddings(prompt, self.config)
         dit = get_dit(self.config)
@@ -53,7 +55,7 @@ class MagiPipeline:
             [
                 post_chunk_process(chunk, self.config)
                 for chunk in generate_per_chunk(
-                    model=dit, prompt=prompt, prefix_video=prefix_video, caption_embs=caption_embs, emb_masks=emb_masks
+                    model=dit, prompt=prompt, prefix_video=prefix_video, caption_embs=caption_embs, emb_masks=emb_masks, reference_video=reference_video
                 )
             ],
             dim=0,
