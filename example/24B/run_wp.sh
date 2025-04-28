@@ -41,12 +41,13 @@ LOG_DIR=log_$(date "+%Y-%m-%d_%H:%M:%S").log
 
 export PYTHONPATH="$MAGI_ROOT:$PYTHONPATH"
 torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
-    --config_file example/24B/24B_config.json \
+    --config_file example/24B/24B_config_wp.json \
     --mode i2v \
-    --prompt "Good Boy" \
-    --image_path example/assets/image.jpeg \
-    --output_path example/assets/output_i2v.mp4 
-    # 2>&1 | tee $LOG_DIR
+    --prompt "smoke rising up and interacting with the shoe moving forward" \
+    --image_path ../Wonderland2/output/genesis/smoke_1/Gen-19-04_05-56-38/simulation/first_frame.png \
+    --output_path example/assets/output_i2v.mp4 \
+    --reference_path ../Wonderland2/output/genesis/smoke_1/Gen-27-04_05-40-09/simulation/traj_00/render_video.mp4 \
+    2>&1 | tee $LOG_DIR
 
 # Explicitly restore terminal settings
 stty "$saved_terminal_settings"
