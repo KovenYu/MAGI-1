@@ -341,6 +341,23 @@ def process_prefix_video(prefix_video_path: str, config: MagiConfig) -> torch.Te
     return prefix_video
 
 
+def process_reference_video(reference_video_path: str, config: MagiConfig) -> torch.Tensor:
+    prefix_video = ffmpeg_v2v(
+        reference_video_path,
+        fps=config.runtime_config.fps,
+        prefix_frame=48,
+        w=config.runtime_config.video_size_w,
+        h=config.runtime_config.video_size_h,
+    )
+    prefix_video = encode_prefix_video(
+        prefix_video,
+        config.runtime_config.fps,
+        config.runtime_config.vae_pretrained,
+        config.runtime_config.scale_factor,
+        parallel_group=mpu.get_tp_group(with_context_parallel=True),
+    )
+    return prefix_video
+
 ############################################
 # Process to get final video
 ############################################

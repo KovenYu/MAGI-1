@@ -22,12 +22,13 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Run MagiPipeline with different modes.")
     parser.add_argument('--config_file', type=str, help='Path to the configuration file.')
     parser.add_argument(
-        '--mode', type=str, choices=['t2v', 'i2v', 'v2v'], required=True, help='Mode to run: t2v, i2v, or v2v.'
+        '--mode', type=str, choices=['t2v', 'i2v', 'v2v', 'iv2v'], required=True, help='Mode to run: t2v, i2v, v2v, or iv2v.'
     )
     parser.add_argument('--prompt', type=str, required=True, help='Prompt for the pipeline.')
     parser.add_argument('--image_path', type=str, help='Path to the image file (for i2v mode).')
     parser.add_argument('--prefix_video_path', type=str, help='Path to the prefix video file (for v2v mode).')
     parser.add_argument('--output_path', type=str, required=True, help='Path to save the output video.')
+    parser.add_argument('--reference_path', type=str, help='Path to the reference video file (for iv2v mode).')
     return parser.parse_args()
 
 
@@ -48,6 +49,14 @@ def main():
             print("Error: --prefix_video_path is required for v2v mode.")
             sys.exit(1)
         pipeline.run_video_to_video(prompt=args.prompt, prefix_video_path=args.prefix_video_path, output_path=args.output_path)
+    elif args.mode == 'iv2v':
+        if not args.image_path:
+            print("Error: --image_path is required for iv2v mode.")
+            sys.exit(1)
+        if not args.reference_path:
+            print("Error: --reference_path is required for iv2v mode.")
+            sys.exit(1)
+        pipeline.run_image_to_video_with_reference(prompt=args.prompt, image_path=args.image_path, output_path=args.output_path, reference_path=args.reference_path)
 
 
 if __name__ == "__main__":

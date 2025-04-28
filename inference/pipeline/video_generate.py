@@ -43,6 +43,7 @@ class InferenceInput:
     task_idx_list: List[int] = None
     report_chunk_num_list: List[int] = None
     chunk_num: int = None
+    reference_video: Union[torch.Tensor, None] = None
 
 
 def _process_txt_embeddings(
@@ -81,7 +82,7 @@ def _process_null_embeddings(
 
 @torch.inference_mode()
 def extract_feature_for_inference(
-    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor
+    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor, reference_video: torch.Tensor = None
 ) -> InferenceInput:
     model_config = model.model_config
     runtime_config = model.runtime_config
@@ -133,6 +134,7 @@ def extract_feature_for_inference(
         task_idx_list=[0],
         report_chunk_num_list=[infer_chunk_num - clean_chunk_num],
         chunk_num=latent_size_t // runtime_config.chunk_width,
+        reference_video=reference_video
     )
 
 
@@ -755,10 +757,10 @@ class SampleTransport:
 
 
 def generate_per_chunk(
-    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor
+    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor, reference_video: torch.Tensor = None
 ) -> Generator[Tuple[int, int, int, int, int, torch.Tensor], None, None]:
     device = f"cuda:{torch.cuda.current_device()}"
-    transport_inputs: InferenceInput = extract_feature_for_inference(model, prompt, prefix_video, caption_embs, emb_masks)
+    transport_inputs: InferenceInput = extract_feature_for_inference(model, prompt, prefix_video, caption_embs, emb_masks, reference_video)
     sample_transport = SampleTransport(model=model, transport_inputs=[transport_inputs], device=device)
     for _, _, chunk in sample_transport.walk():
         yield chunk
