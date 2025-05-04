@@ -35,10 +35,20 @@ MAGI_ROOT=$(git rev-parse --show-toplevel)
 LOG_DIR=log_$(date "+%Y-%m-%d_%H:%M:%S").log
 
 export PYTHONPATH="$MAGI_ROOT:$PYTHONPATH"
+SDEDIT_STEPS=0
 torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
     --config_file example/sdedit/24B_config_wp.json \
     --mode iv2v \
-    --prompt "A scene with smoke and interaction with the shoe" \
+    --prompt "A scene with smoke and shoe moving forward" \
     --image_path /svl/u/zzli/projects/data/examples_1023/fluid/smoke_1.png \
-    --output_path example/assets/output_wp_nosdedit.mp4 \
-    --reference_path /viscam/projects/neural_wind_tunnel/Wonderland2/output/genesis/smoke_1/Gen-27-04_05-40-09/simulation/traj_00/render_video.mp4 
+    --output_path example/assets/output_wp_24fps_sdedit_${SDEDIT_STEPS}_steps_8.mp4 \
+    --reference_path /viscam/projects/neural_wind_tunnel/Wonderland2/output/genesis/smoke_1/Gen-03-05_01-02-55/simulation/traj_00/render_video.mp4 \
+    --start_step $SDEDIT_STEPS 
+# no sdedit
+# torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
+#     --config_file example/sdedit/24B_config_wp.json \
+#     --mode i2v \
+#     --prompt "A scene with smoke and interaction with the shoe" \
+#     --image_path /svl/u/zzli/projects/data/examples_1023/fluid/smoke_1.png \
+#     --output_path example/assets/output_wp_steps_8.mp4 
+#     --reference_path /viscam/projects/neural_wind_tunnel/Wonderland2/output/genesis/smoke_1/Gen-27-04_05-40-09/simulation/traj_00/render_video.mp4 \

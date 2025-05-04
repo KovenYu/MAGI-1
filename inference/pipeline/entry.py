@@ -29,6 +29,7 @@ def parse_arguments():
     parser.add_argument('--prefix_video_path', type=str, help='Path to the prefix video file (for v2v mode).')
     parser.add_argument('--output_path', type=str, required=True, help='Path to save the output video.')
     parser.add_argument('--reference_path', type=str, help='Path to the reference video file (for iv2v mode).')
+    parser.add_argument('--start_step', type=int, default=0, help='Start step for the pipeline.')
     return parser.parse_args()
 
 
@@ -56,7 +57,7 @@ def main():
         if not args.reference_path:
             print("Error: --reference_path is required for iv2v mode.")
             sys.exit(1)
-        pipeline.run_image_to_video_with_reference(prompt=args.prompt, image_path=args.image_path, output_path=args.output_path, reference_path=args.reference_path)
+        pipeline.run_image_to_video_with_reference(prompt=args.prompt, image_path=args.image_path, output_path=args.output_path, reference_path=args.reference_path, start_step=args.start_step)
 
 
 if __name__ == "__main__":

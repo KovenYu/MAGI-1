@@ -55,6 +55,7 @@ class VideoDiTModel(torch.nn.Module):
         self.runtime_config = config.runtime_config
         self.engine_config = config.engine_config
 
+
         self.pre_process = pre_process
         self.post_process = post_process
         self.in_channels = self.model_config.in_channels

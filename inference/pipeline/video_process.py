@@ -242,6 +242,7 @@ def ffmpeg_v2v(video_path, fps, w=384, h=224, prefix_frame=None, prefix_video_ma
     )
 
     video = torch.frombuffer(out, dtype=torch.uint8).view(-1, h, w, 3)
+    print(f"video.shape: {video.shape}") # [144, 512, 512, 3]
 
     if prefix_frame is not None:
         return video[:prefix_frame]
@@ -251,7 +252,6 @@ def ffmpeg_v2v(video_path, fps, w=384, h=224, prefix_frame=None, prefix_video_ma
             clip_length = 1
         else:
             PREFIX_VIDEO_MAX_FRAMES = prefix_video_max_chunk * fps
-            clip_length = min(num_frames_to_read // fps * fps, PREFIX_VIDEO_MAX_FRAMES)
         return video[-clip_length:]
 
 
@@ -287,7 +287,7 @@ def encode_prefix_video(prefix_video, fps, vae_ckpt, scale_factor, parallel_grou
 
     # THWC -> NCTHW
     prefix_video = prefix_video.permute(3, 0, 1, 2).unsqueeze(0)
-    magi_logger.debug(f"prefix_video.shape: {prefix_video.shape}")
+    magi_logger.debug(f"Before VAE encode shape: {prefix_video.shape}")
     vae_model = VaeHelper.get_vae(vae_ckpt)
     tile_sample_min_length = fps // 2
     prefix_video = VaeHelper.encode(
@@ -308,6 +308,7 @@ def encode_prefix_video(prefix_video, fps, vae_ckpt, scale_factor, parallel_grou
     magi_logger.debug(
         f"rank {torch.distributed.get_rank()} memory reserved after vae encode: {torch.cuda.memory_reserved() / 1024**3:.2f} GB"
     )
+    magi_logger.debug(f"After VAE encode shape: {prefix_video.shape}")
     return prefix_video
 
 
@@ -331,6 +332,7 @@ def process_prefix_video(prefix_video_path: str, config: MagiConfig) -> torch.Te
         w=config.runtime_config.video_size_w,
         h=config.runtime_config.video_size_h,
     )
+    
     prefix_video = encode_prefix_video(
         prefix_video,
         config.runtime_config.fps,
@@ -345,10 +347,30 @@ def process_reference_video(reference_video_path: str, config: MagiConfig) -> to
     prefix_video = ffmpeg_v2v(
         reference_video_path,
         fps=config.runtime_config.fps,
-        prefix_frame=48,
+        prefix_frame=144,
         w=config.runtime_config.video_size_w,
         h=config.runtime_config.video_size_h,
     )
+    prefix_video = encode_prefix_video(
+        prefix_video,
+        config.runtime_config.fps,
+        config.runtime_config.vae_pretrained,
+        config.runtime_config.scale_factor,
+        parallel_group=mpu.get_tp_group(with_context_parallel=True),
+    )
+    return prefix_video
+
+def process_reference_img(img_path: str, reference_video_path: str, config: MagiConfig) -> torch.Tensor:
+    prefix_video = ffmpeg_v2v(
+        reference_video_path,
+        fps=config.runtime_config.fps,
+        prefix_frame=3,
+        w=config.runtime_config.video_size_w,
+        h=config.runtime_config.video_size_h,
+    )
+    prefix_img = ffmpeg_i2v(img_path, w=config.runtime_config.video_size_w, h=config.runtime_config.video_size_h)
+    # concat prefix_video and prefix_img
+    prefix_video = torch.cat([prefix_img, prefix_video], dim=0)
     prefix_video = encode_prefix_video(
         prefix_video,
         config.runtime_config.fps,

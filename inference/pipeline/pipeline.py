@@ -14,14 +14,15 @@
 
 
 import torch
+import torch.distributed as dist
 
-from inference.common import MagiConfig, print_rank_0, set_random_seed
+from inference.common import MagiConfig, event_path_timer, print_rank_0, set_random_seed
 from inference.infra.distributed import dist_init
 from inference.model.dit import get_dit
 
 from .prompt_process import get_txt_embeddings
 from .video_generate import generate_per_chunk
-from .video_process import post_chunk_process, process_image, process_prefix_video, save_video_to_disk
+from .video_process import post_chunk_process, process_image, process_prefix_video, process_reference_img, save_video_to_disk, process_reference_video
 
 
 class MagiPipeline:
@@ -43,24 +44,36 @@ class MagiPipeline:
         prefix_video = process_prefix_video(prefix_video_path, self.config)
         self._run(prompt, prefix_video, output_path)
     
-    def run_image_to_video_with_reference(self, prompt: str, image_path: str, reference_path: str, output_path: str):
+    def run_image_to_video_with_reference(self, prompt: str, image_path: str, reference_path: str, output_path: str, start_step: int = 0):
+        # prefix_video = process_reference_img(image_path, reference_path, self.config)
         prefix_video = process_image(image_path, self.config)
-        reference_video = process_prefix_video(reference_path, self.config)
-        self._run(prompt, prefix_video, output_path, reference_video)
+        reference_video = process_reference_video(reference_path, self.config)
+        self._run(prompt, prefix_video, output_path, reference_video, start_step)
 
-    def _run(self, prompt: str, prefix_video: torch.Tensor, output_path: str, reference_video: torch.Tensor = None):
+    def _run(self, prompt: str, prefix_video: torch.Tensor, output_path: str, reference_video: torch.Tensor = None, start_step: int = 0):
         caption_embs, emb_masks = get_txt_embeddings(prompt, self.config)
         dit = get_dit(self.config)
-        videos = torch.cat(
-            [
-                post_chunk_process(chunk, self.config)
-                for chunk in generate_per_chunk(
-                    model=dit, prompt=prompt, prefix_video=prefix_video, caption_embs=caption_embs, emb_masks=emb_masks, reference_video=reference_video
-                )
-            ],
-            dim=0,
-        )
-        save_video_to_disk(videos, output_path, fps=self.config.runtime_config.fps)
+        for iii in range(3):
+            if dist.get_rank() == 0:
+                event_path_timer().synced_record("video_generation_start")
+                print('Testing inference time cost.')
+
+            videos = torch.cat(
+                [
+                    post_chunk_process(chunk, self.config)
+                    for chunk in generate_per_chunk(
+                        model=dit, prompt=prompt, prefix_video=prefix_video, caption_embs=caption_embs, emb_masks=emb_masks, reference_video=reference_video, start_step=start_step
+                    )
+                ],
+                dim=0,
+            )
+            if dist.get_rank() == 0:
+                event_path_timer().synced_record("video_generation_end")
+                print('End of testing inference time cost.')
+        if prefix_video is not None:
+            save_video_to_disk(videos, output_path, fps=self.config.runtime_config.fps)
+        else:
+            save_video_to_disk(videos, output_path, fps=self.config.runtime_config.fps)
 
         mem_allocated_gb = torch.cuda.max_memory_allocated() / 1024**3
         mem_reserved_gb = torch.cuda.max_memory_reserved() / 1024**3

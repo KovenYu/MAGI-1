@@ -38,7 +38,7 @@ export PYTHONPATH="$MAGI_ROOT:$PYTHONPATH"
 torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
     --config_file example/24B/24B_config.json \
     --mode i2v \
-    --prompt "Good Boy" \
-    --image_path example/assets/image.jpeg \
-    --output_path example/assets/output_i2v.mp4 \
+    --prompt "A scene with smoke and shoe moving forward" \
+    --image_path /svl/u/zzli/projects/data/examples_1023/fluid/smoke_1.png \
+    --output_path example/assets/output_i2v_magi_24B_8_steps.mp4 \
     2>&1 | tee $LOG_DIR

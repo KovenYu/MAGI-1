@@ -86,6 +86,7 @@ def extract_feature_for_inference(
 ) -> InferenceInput:
     model_config = model.model_config
     runtime_config = model.runtime_config
+
     ### Prepare prefix video feature
     clean_chunk_num = 0
     if prefix_video is not None:
@@ -182,7 +183,7 @@ def generate_sequences(chunk_num, window_size, chunk_offset):
     return clip_start, clip_end, t_start, t_end
 
 
-def init_t(t_schedule_config: Union[Dict, None], num_steps: int, device: torch.device, shortcut_mode: str = ""):
+def init_t(t_schedule_config: Union[Dict, None], num_steps: int, device: torch.device, shortcut_mode: str = "", start_step: int = 0):
     """Init Timestep and Transform t"""
     if num_steps == 12:
         base_t = torch.linspace(0, 1, 4 + 1, device=device) / 4
@@ -193,8 +194,9 @@ def init_t(t_schedule_config: Union[Dict, None], num_steps: int, device: torch.d
             base_t = torch.cat([base_t[:1], base_t[2:4]], dim=0)
         t = torch.cat([base_t + accu for accu in accu_num], dim=0)[: (num_steps + 1)]
     else:
-        t = torch.linspace(0, 1, num_steps + 1, device=device)
+        t = torch.linspace(0, 1, num_steps + 1 + start_step, device=device)
     t_schedule_func = t_schedule_config.get("tSchedulerFunc", "sd3")
+    print(f"t_schedule_func: {t_schedule_func}")
     if t_schedule_func == "sd3":
 
         def t_resolution_transform(x, shift=3.0):
@@ -221,6 +223,16 @@ def init_t(t_schedule_config: Union[Dict, None], num_steps: int, device: torch.d
         t = t_transform(t)
     else:  # identity
         pass
+    t = t[start_step:]
+    #t = torch.tensor([0.5000, 0.6000, 0.7000, 0.8000, 0.8500, 0.9000, 0.9500, 0.9800, 1.0000], device=device)
+    # print(f"t: {t}")
+    # base_t = torch.linspace(0.0, 0.9, num_steps + 1, device=device)
+    # t = base_t ** 2
+    # # reverse the tensor t
+    # t = 1 - t
+    # t = t.flip(0)
+    # t[-1] = 1.0 # 确保终点一致
+    print(f"New t: {t}")
     return t
 
 
@@ -251,7 +263,7 @@ def find_dit_model(model):
 
 
 class SampleTransport:
-    def __init__(self, model: torch.nn.Module, transport_inputs: List[InferenceInput], device: torch.device):
+    def __init__(self, model: torch.nn.Module, transport_inputs: List[InferenceInput], device: torch.device, start_step: int = 0):
         # ========= Input Tensor =========
         self.model = model
         self.transport_inputs = transport_inputs
@@ -274,6 +286,7 @@ class SampleTransport:
         self.velocities: List[torch.Tensor] = []
         self.time_record: List[tqdm] = []
         self.inference_params: List[InferenceParams] = []
+        self.start_step = start_step
         self.init_work_queue()
 
     def init_work_queue(self) -> None:
@@ -289,7 +302,7 @@ class SampleTransport:
 
             self.chunk_denoise_count.append(Counter())
             self.ts.append(
-                init_t(tran_input.t_schedule_config, tran_input.num_steps, self.device, shortcut_mode=shortcut_mode)
+                init_t(tran_input.t_schedule_config, tran_input.num_steps, self.device, shortcut_mode=shortcut_mode, start_step=self.start_step)
             )
             self.time_interval.append(init_intervel(tran_input.num_steps, self.device, shortcut_mode=shortcut_mode))
             self.x_chunks.append(None)
@@ -306,7 +319,24 @@ class SampleTransport:
                 self.time_record.append(progress_bar)
 
             print_rank_0(f"transport_inputs len: {len(self.transport_inputs)}")
-            x = torch.randn(*tran_input.latent_size, device=self.device)  # NCTHW
+            if self.transport_inputs[idx].reference_video is not None:
+                print_rank_0(f"Reference video is not None, shape: {self.transport_inputs[idx].reference_video.shape}")
+                x = torch.randn(*tran_input.latent_size, device=self.device)  # NCTHW
+                reference_video = self.transport_inputs[idx].reference_video
+                start_t = self.ts[idx][0]
+                # self.ts[idx] = self.ts[idx][1:]
+                print_rank_0(f"start_t value: {start_t}")
+                # add noise to x
+                print_rank_0(f"x shape: {x.shape}")
+                print_rank_0(f"reference_video shape: {reference_video.shape}")
+                # normal way
+                x = start_t * reference_video + (1 - start_t) * x
+                # guassian noise
+                # x = reference_video + torch.randn_like(x) * (1 - start_t)
+                print_rank_0(f"initialize x with reference video: {x.shape}")
+            else:
+                print_rank_0("Reference video is None")
+                x = torch.randn(*tran_input.latent_size, device=self.device)  # NCTHW
             x = torch.cat([x, x], 0)  # [2 * N, C, T, H, W]
             self.xs.append(x)
 
@@ -757,11 +787,11 @@ class SampleTransport:
 
 
 def generate_per_chunk(
-    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor, reference_video: torch.Tensor = None
+    model: torch.nn.Module, prompt: str, prefix_video: torch.Tensor, caption_embs: torch.Tensor, emb_masks: torch.Tensor, reference_video: torch.Tensor = None, start_step: int = 0
 ) -> Generator[Tuple[int, int, int, int, int, torch.Tensor], None, None]:
     device = f"cuda:{torch.cuda.current_device()}"
     transport_inputs: InferenceInput = extract_feature_for_inference(model, prompt, prefix_video, caption_embs, emb_masks, reference_video)
-    sample_transport = SampleTransport(model=model, transport_inputs=[transport_inputs], device=device)
+    sample_transport = SampleTransport(model=model, transport_inputs=[transport_inputs], device=device, start_step=start_step)
     for _, _, chunk in sample_transport.walk():
         yield chunk
     dist.barrier()
