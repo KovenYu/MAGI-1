@@ -89,10 +89,15 @@ def extract_feature_for_inference(
     clean_chunk_num = 0
     if prefix_video is not None:
         clean_chunk_num = prefix_video.size(2) // runtime_config.chunk_width
+        print(f"num_frames: {runtime_config.num_frames}")
+        print(f"temporal_downsample_factor: {runtime_config.temporal_downsample_factor}")
+        print(f"chunk_width: {runtime_config.chunk_width}")
+        print(f"prefix_video.size(2): {prefix_video.size(2)}")
         infer_chunk_num = math.ceil(
             (runtime_config.num_frames // runtime_config.temporal_downsample_factor * 1.0 + prefix_video.size(2))
             / runtime_config.chunk_width
         )
+        print(f"clean_chunk_num: {clean_chunk_num}, infer_chunk_num: {infer_chunk_num}")
     else:
         infer_chunk_num = math.ceil(
             (runtime_config.num_frames // runtime_config.temporal_downsample_factor * 1.0) / runtime_config.chunk_width
@@ -119,6 +124,8 @@ def extract_feature_for_inference(
     if model_config.half_channel_vae:
         in_channels = 16
     latent_size_t = infer_chunk_num * runtime_config.chunk_width
+
+    print(f"latent_size_t: {latent_size_t}")
     latent_size_h = runtime_config.video_size_h // 8
     latent_size_w = runtime_config.video_size_w // 8
 
@@ -305,6 +312,7 @@ class SampleTransport:
 
             print_rank_0(f"transport_inputs len: {len(self.transport_inputs)}")
             x = torch.randn(*tran_input.latent_size, device=self.device)  # NCTHW
+            print(f"x shape: {x.shape}")
             x = torch.cat([x, x], 0)  # [2 * N, C, T, H, W]
             self.xs.append(x)
 

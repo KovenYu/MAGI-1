@@ -38,7 +38,34 @@ export PYTHONPATH="$MAGI_ROOT:$PYTHONPATH"
 torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
     --config_file example/24B/24B_config.json \
     --mode i2v \
-    --prompt "Good Boy" \
-    --image_path example/assets/image.jpeg \
-    --output_path example/assets/output_i2v.mp4 \
-    2>&1 | tee $LOG_DIR
+    --prompt "A scene with smoke and interaction with the shoe" \
+    --image_path /svl/u/zzli/projects/data/examples_1023/fluid/smoke_1.png \
+    --output_path example/assets/output_i2v_distill_quant_shoe_8.mp4 
+
+torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
+    --config_file example/24B/24B_config.json \
+    --mode i2v \
+    --prompt "The Grand Canal in Venice, boats, historical buildings, waterway. Boat is moving forward" \
+    --image_path /viscam/projects/neural_wind_tunnel/Wonderland2/examples/images/37_venice_1.png \
+    --output_path example/assets/output_i2v_distill_quant_venice_8.mp4 
+
+torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
+    --config_file example/24B/24B_config.json \
+    --mode i2v \
+    --prompt "A vibrant city avenue, bustling traffic, pedestrians, towering skyscrapers" \
+    --image_path /viscam/projects/neural_wind_tunnel/Wonderland2/examples/images/03_city_monet_3.png \
+    --output_path example/assets/output_i2v_distill_quant_monet_8.mp4 
+
+torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
+    --config_file example/24B/24B_config.json \
+    --mode i2v \
+    --prompt "A scene with two oranges. " \
+    --image_path /svl/u/zzli/projects/data/examples_1023/rigid/thomas-franke-ue1aJ2mBKYU-unsplash.jpg \
+    --output_path example/assets/output_i2v_distill_quant_orange_8.mp4 
+
+torchrun $DISTRIBUTED_ARGS inference/pipeline/entry.py \
+    --config_file example/24B/24B_config.json \
+    --mode i2v \
+    --prompt "A scene with clothes hanging" \
+    --image_path /svl/u/zzli/projects/data/examples_1023/deformable/clothes_hang.jpg \
+    --output_path example/assets/output_i2v_distill_quant_clothes_8.mp4 
